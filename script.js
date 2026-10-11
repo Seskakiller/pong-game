@@ -3,6 +3,12 @@ const ctx = canvas.getContext('2d');
 
 const leftScoreElement = document.getElementById('left-score');
 const rightScoreElement = document.getElementById('right-score');
+const startBtn = document.getElementById('startBtn');
+const restartBtn = document.getElementById('restartBtn');
+const startOverlay = document.getElementById('startOverlay');
+const gameOverOverlay = document.getElementById('gameOverOverlay');
+const gameOverTitle = document.getElementById('gameOverTitle');
+const gameOverMessage = document.getElementById('gameOverMessage');
 
 // Detect if device is mobile
 const isMobile = () => {
@@ -11,6 +17,66 @@ const isMobile = () => {
 };
 
 const IS_MOBILE = isMobile();
+
+// Game states
+const GAME_STATE = {
+  START: 'start',
+  PLAYING: 'playing',
+  PAUSED: 'paused',
+  GAME_OVER: 'gameOver',
+};
+
+let gameState = GAME_STATE.START;
+
+// Audio context for sound effects
+let audioContext = null;
+
+function initAudioContext() {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return audioContext;
+}
+
+function playSound(frequency, duration, type = 'sine') {
+  try {
+    const ctx = initAudioContext();
+    const now = ctx.currentTime;
+    
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    oscillator.frequency.value = frequency;
+    oscillator.type = type;
+    
+    gainNode.gain.setValueAtTime(0.3, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration);
+    
+    oscillator.start(now);
+    oscillator.stop(now + duration);
+  } catch (e) {
+    // Fallback if audio is not supported
+  }
+}
+
+function playPaddleHit() {
+  playSound(600, 0.1);
+}
+
+function playWallHit() {
+  playSound(400, 0.08);
+}
+
+function playScore() {
+  playSound(800, 0.15);
+}
+
+function playGameOver() {
+  playSound(200, 0.3, 'sine');
+}
 
 // Responsive paddle and ball sizes
 const getPaddleSize = () => {
@@ -23,6 +89,7 @@ let paddleHeight = paddleSize.height;
 
 const paddleSpeed = 8;
 const ballRadius = 10;
+const WINNING_SCORE = 5;
 
 let canvasWidth = 800;
 let canvasHeight = 500;
@@ -77,7 +144,7 @@ const touch = {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
-};
+}
 
 function updateScoreboard() {
   leftScoreElement.textContent = scores.left;
@@ -106,7 +173,37 @@ function initializePaddles() {
   rightPaddle.height = paddleHeight;
 }
 
+function startGame() {
+  gameState = GAME_STATE.PLAYING;
+  startOverlay.classList.add('hidden');
+}
+
+function restartGame() {
+  gameState = GAME_STATE.PLAYING;
+  gameOverOverlay.classList.add('hidden');
+  scores.left = 0;
+  scores.right = 0;
+  updateScoreboard();
+  resetBall(1);
+}
+
+function endGame(winner) {
+  gameState = GAME_STATE.GAME_OVER;
+  playGameOver();
+  
+  if (winner === 'left') {
+    gameOverTitle.textContent = '🎉 You Won!';
+  } else {
+    gameOverTitle.textContent = '🤖 Computer Won!';
+  }
+  
+  gameOverMessage.textContent = `Final Score: ${scores.left} - ${scores.right}`;
+  gameOverOverlay.classList.remove('hidden');
+}
+
 function handleInput() {
+  if (gameState !== GAME_STATE.PLAYING) return;
+
   // Keyboard input (desktop)
   if (keys.ArrowUp) {
     leftPaddle.y -= paddleSpeed;
@@ -119,11 +216,6 @@ function handleInput() {
   // Touch input (mobile)
   if (touch.active) {
     leftPaddle.y = clamp(touch.y - paddleHeight / 2, 0, canvasHeight - paddleHeight);
-  }
-
-  // Mouse input (desktop)
-  if (!touch.active && !keys.ArrowUp && !keys.ArrowDown) {
-    // Mouse control is handled by mousemove event
   }
 
   leftPaddle.y = clamp(leftPaddle.y, 0, canvasHeight - leftPaddle.height);
@@ -139,11 +231,13 @@ function handleBallWallCollision() {
   if (ball.y - ball.radius <= 0) {
     ball.y = ball.radius;
     ball.vy *= -1;
+    playWallHit();
   }
 
   if (ball.y + ball.radius >= canvasHeight) {
     ball.y = canvasHeight - ball.radius;
     ball.vy *= -1;
+    playWallHit();
   }
 }
 
@@ -159,6 +253,7 @@ function handlePaddleCollision() {
     ball.x = leftPaddle.x + leftPaddle.width + ball.radius;
     ball.vx = Math.abs(ball.vx) + 0.25;
     ball.vy += (ball.y - (leftPaddle.y + leftPaddle.height / 2)) * 0.12;
+    playPaddleHit();
   }
 
   const rightHit =
@@ -172,24 +267,39 @@ function handlePaddleCollision() {
     ball.x = rightPaddle.x - ball.radius;
     ball.vx = -Math.abs(ball.vx) - 0.25;
     ball.vy += (ball.y - (rightPaddle.y + rightPaddle.height / 2)) * 0.12;
+    playPaddleHit();
   }
 }
 
 function scoreCheck() {
   if (ball.x - ball.radius < 0) {
     scores.right += 1;
+    playScore();
     updateScoreboard();
-    resetBall(1);
+    
+    if (scores.right >= WINNING_SCORE) {
+      endGame('right');
+    } else {
+      resetBall(1);
+    }
   }
 
   if (ball.x + ball.radius > canvasWidth) {
     scores.left += 1;
+    playScore();
     updateScoreboard();
-    resetBall(-1);
+    
+    if (scores.left >= WINNING_SCORE) {
+      endGame('left');
+    } else {
+      resetBall(-1);
+    }
   }
 }
 
 function update() {
+  if (gameState !== GAME_STATE.PLAYING) return;
+
   handleInput();
 
   ball.x += ball.vx;
@@ -232,6 +342,14 @@ function draw() {
   drawPaddle(leftPaddle.x, leftPaddle.y, leftPaddle.width, leftPaddle.height);
   drawPaddle(rightPaddle.x, rightPaddle.y, rightPaddle.width, rightPaddle.height);
   drawBall(ball.x, ball.y, ball.radius);
+
+  // Draw "waiting to start" message
+  if (gameState === GAME_STATE.START) {
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.5)';
+    ctx.font = 'bold 20px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Press Start to Begin', canvasWidth / 2, canvasHeight / 2);
+  }
 }
 
 function gameLoop() {
@@ -256,7 +374,7 @@ window.addEventListener('keyup', (event) => {
 
 // Mouse events (desktop)
 canvas.addEventListener('mousemove', (event) => {
-  if (IS_MOBILE) return; // Don't use mouse on mobile
+  if (IS_MOBILE || gameState !== GAME_STATE.PLAYING) return;
   
   const rect = canvas.getBoundingClientRect();
   const pointerY = event.clientY - rect.top;
@@ -266,6 +384,8 @@ canvas.addEventListener('mousemove', (event) => {
 // Touch events (mobile)
 canvas.addEventListener('touchstart', (event) => {
   event.preventDefault();
+  if (gameState !== GAME_STATE.PLAYING) return;
+  
   touch.active = true;
   const touch_event = event.touches[0];
   const rect = canvas.getBoundingClientRect();
@@ -274,7 +394,7 @@ canvas.addEventListener('touchstart', (event) => {
 
 canvas.addEventListener('touchmove', (event) => {
   event.preventDefault();
-  if (!touch.active) return;
+  if (!touch.active || gameState !== GAME_STATE.PLAYING) return;
   
   const touch_event = event.touches[0];
   const rect = canvas.getBoundingClientRect();
@@ -291,6 +411,10 @@ canvas.addEventListener('touchcancel', (event) => {
   touch.active = false;
 }, { passive: false });
 
+// Button events
+startBtn.addEventListener('click', startGame);
+restartBtn.addEventListener('click', restartGame);
+
 // Handle window resize
 window.addEventListener('resize', () => {
   resizeCanvas();
@@ -304,5 +428,4 @@ window.addEventListener('resize', () => {
 resizeCanvas();
 initializePaddles();
 updateScoreboard();
-resetBall(1);
 requestAnimationFrame(gameLoop);

@@ -18,6 +18,28 @@
         <span class="desktop-controls">Use arrow keys or mouse to move left paddle</span>
         <span class="mobile-controls">Tap or drag to move your paddle</span>
       </div>
+
+      <!-- Start Screen -->
+      <div class="overlay" id="startOverlay">
+        <div class="modal">
+          <h1>PONG</h1>
+          <p>First to 5 points wins!</p>
+          <button id="startBtn" class="btn btn-primary">Start Game</button>
+          <div class="instructions">
+            <p class="desktop-only"><strong>Desktop:</strong> Use arrow keys ⬆️⬇️ or mouse to control your paddle</p>
+            <p class="mobile-only"><strong>Mobile:</strong> Tap and drag to control your paddle</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div class="overlay" id="gameOverOverlay">
+        <div class="modal">
+          <h1 id="gameOverTitle">You Won!</h1>
+          <p id="gameOverMessage">Final Score: 5 - 2</p>
+          <button id="restartBtn" class="btn btn-primary">Play Again</button>
+        </div>
+      </div>
     </div>
 
     <script src="script.js"></script>
