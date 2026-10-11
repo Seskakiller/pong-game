@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pong</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="game-shell">
+      <div class="scoreboard" aria-label="Scoreboard">
+        <span id="left-score">0</span>
+        <span class="divider">:</span>
+        <span id="right-score">0</span>
+      </div>
+      <canvas id="gameCanvas" aria-label="Pong game board"></canvas>
+      <div class="controls-info" id="controlsInfo">
+        <span class="desktop-controls">Use arrow keys or mouse to move left paddle</span>
+        <span class="mobile-controls">Tap or drag to move your paddle</span>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
